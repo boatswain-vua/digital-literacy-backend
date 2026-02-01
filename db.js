@@ -10,6 +10,8 @@ const pool = new Pool({
   max: 20, // максимальное количество подключений в пуле
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 2000,
+  // SSL настройки для продакшена (Supabase требует SSL)
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
 // Проверка подключения

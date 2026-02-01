@@ -4,6 +4,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
+// Устанавливаем NODE_ENV если не установлена
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'production';
+}
+
 const pool = require('./db');
 const authMiddleware = require('./authMiddleware');
 
@@ -13,7 +18,10 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors({
      origin: [
-       'https://digital-literacy-frontend.vercel.app' // ваш реальный URL от Vercel
+       'https://digital-literacy-frontend.vercel.app', // ваш реальный URL от Vercel
+       'http://localhost:3000', // для локальной разработки
+       'http://localhost:5173', // для Vite dev server
+       process.env.FRONTEND_URL // добавьте переменную окружения для фронтенда
      ],
      credentials: true
    }));
@@ -27,6 +35,8 @@ app.use(express.json());
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
 
+  console.log('🔄 Попытка регистрации:', { username, email });
+
   try {
     // Проверка на существование пользователя
     const userExists = await pool.query(
@@ -35,6 +45,7 @@ app.post('/api/auth/register', async (req, res) => {
     );
 
     if (userExists.rows.length > 0) {
+      console.log('❌ Пользователь уже существует:', { username, email });
       return res.status(400).json({
         success: false,
         message: 'Пользователь с таким именем или email уже существует'
@@ -51,6 +62,8 @@ app.post('/api/auth/register', async (req, res) => {
       [username, email, passwordHash]
     );
 
+    console.log('✅ Пользователь создан:', newUser.rows[0]);
+
     // Создание записи статистики
     await pool.query(
       'INSERT INTO user_stats (user_id) VALUES ($1)',
@@ -64,6 +77,8 @@ app.post('/api/auth/register', async (req, res) => {
       { expiresIn: '7d' }
     );
 
+    console.log('✅ Регистрация успешна для:', username);
+
     res.status(201).json({
       success: true,
       message: 'Регистрация успешна',
@@ -75,10 +90,11 @@ app.post('/api/auth/register', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Ошибка регистрации:', error);
+    console.error('❌ Ошибка регистрации:', error);
     res.status(500).json({
       success: false,
-      message: 'Ошибка сервера при регистрации'
+      message: 'Ошибка сервера при регистрации',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 });
